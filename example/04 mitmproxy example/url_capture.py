@@ -4,12 +4,14 @@ from mitmproxy import options
 from mitmproxy.tools.dump import DumpMaster
 from mitmproxy.http import HTTPFlow
 
+
 class URLcapture:
-    def request(self, flow:HTTPFlow)-> None:
+    def request(self, flow: HTTPFlow) -> None:
         print(f"[url] {flow.request.pretty_url}")
 
+
 async def start_proxy():
-    opts = options.Options(listen_host = "127.0.0.1", listen_port=8080)
+    opts = options.Options(listen_host="127.0.0.1", listen_port=8080)
     master = DumpMaster(opts)
     master.addons.add(URLcapture())
 
@@ -18,5 +20,6 @@ async def start_proxy():
         await master.run()
     except KeyboardInterrupt:
         await master.shutdown()
+
 
 asyncio.run(start_proxy())
