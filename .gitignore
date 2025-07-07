@@ -8,3 +8,9 @@ wheels/
 
 # Virtual environments
 .venv
+
+#
+/set-linux-localproxy.sh
+/set-win-localproxy.bat
+/unset-linux-localproxy.sh
+/unset-win-localproxy.bat

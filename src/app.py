@@ -1,14 +1,17 @@
 import asyncio
 
+from src.firewall.controller import Controller
 from src.firewall.ui import FirewallUI
 
 
 class App:
     async def run(self):
-        ui = FirewallUI()
+        contoller = Controller()
+
+        # UI 실행
+        ui = FirewallUI(contoller)
 
         asyncio.create_task(ui.run_async())
-
         await asyncio.Event().wait()
 
 
