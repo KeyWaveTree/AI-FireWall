@@ -1,5 +1,4 @@
 import json
-
 from dataclasses import asdict
 
 from src.firewall.logger.log_models import Log

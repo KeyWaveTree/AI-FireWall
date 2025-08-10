@@ -10,12 +10,12 @@ from datetime import datetime
 
 from src.firewall.logger.log_models import PacketLog
 from src.firewall.logger.logger import Logger
-
 from src.firewall.policy.policy_models import PacketPolicy
 
 
 class ScapyInterceptor:
-    def __init__(self, logger: Logger) -> None:
+    def __init__(self, logger: Logger, policy) -> None:
+        self.policies = policy.policies
         self.logger = logger
         self.is_running = False
         self.sniffer = AsyncSniffer(prn=self._process_packet, store=False)
@@ -33,6 +33,11 @@ class ScapyInterceptor:
     def _process_packet(self, packet) -> None:
         # 패킷 요약 정보를 UI에 출력
         packet_log = parse_scapy_packet(packet)
+        for policy_name, policy_info in self.policies["packet"].items():
+            if matches_packet_policy(packet_log, policy_info):
+                packet_log.action = "blocked"
+                packet_log.reason = "Blocked by " + policy_info.reason
+
         self.logger.packet(packet_log)
 
 
@@ -88,3 +93,19 @@ def parse_scapy_packet(packet: Packet) -> PacketLog:
         dst_port=dst_port,
         reason="Captured by scapy",
     )
+
+
+def matches_packet_policy(log: PacketLog, policy: PacketPolicy) -> bool:
+    if policy.src_ip is not None and policy.src_ip != log.src_ip:
+        return False
+    if policy.dst_ip is not None and policy.dst_ip != log.dst_ip:
+        return False
+    if policy.src_mac is not None and policy.src_mac != log.src_mac:
+        return False
+    if policy.dst_mac is not None and policy.dst_mac != log.dst_mac:
+        return False
+    if policy.src_port is not None and policy.src_port != log.src_port:
+        return False
+    if policy.dst_port is not None and policy.dst_port != log.dst_port:
+        return False
+    return True

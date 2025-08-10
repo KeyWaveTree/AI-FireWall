@@ -6,7 +6,6 @@ services=$(networksetup -listallnetworkservices | tail -n +2)
 
 for service in $services; do
     echo "Setting proxy for $service..."
-
     networksetup -setwebproxy "$service" $PROXY_SERVER $PROXY_PORT
     networksetup -setsecurewebproxy "$service" $PROXY_SERVER $PROXY_PORT
     networksetup -setwebproxystate "$service" on
