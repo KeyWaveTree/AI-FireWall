@@ -35,6 +35,10 @@ class Logger:
         labels = self.get_labels(packet, log_level="block")
         self.send_log(labels, json.dumps(asdict(packet)))
 
+    def threat(self, threat: Log):
+        labels = self.get_labels(threat, log_level="threat")
+        self.send_log(labels, json.dumps(asdict(threat)))
+
     def policy(self, message: str):
         labels = {"log_type": "config", "level": "policy"}
         self.send_log(labels, message)

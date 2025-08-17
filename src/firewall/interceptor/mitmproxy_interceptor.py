@@ -1,3 +1,4 @@
+import requests
 import asyncio
 import json
 import re
@@ -23,6 +24,9 @@ class MitmproxyInterceptor:
         self.listen_port = listen_port
         self.policies = policy.policies
         self.is_running = False
+        self.block_image_bytes = requests.get(
+            "https://http.cat/403", proxies={"http": None, "https": None}
+        ).content
 
     async def request(self, flow: http.HTTPFlow):
         http_log = parse_http_request(flow)
@@ -42,7 +46,20 @@ class MitmproxyInterceptor:
         self.logger.http(http_log)
 
     async def response(self, flow: http.HTTPFlow):
-        pass
+        content_type = flow.response.headers.get("Content-Type", "").lower()
+        for policy_name, policy_info in self.policies["http"].items():
+            if (
+                matches_policy(flow, policy_info)
+                and content_type.startswith("image/jpeg")
+                or content_type.startswith("image/png")
+            ):
+                flow.response.content = self.block_image_bytes
+        if content_type.startswith("application/javascript") or content_type.startswith(
+            "text/javascript"
+        ):
+            from src.assistant.ollama_analyzer import ollama_vulnerability_check
+
+            asyncio.create_task(ollama_vulnerability_check(flow, self.logger))
 
     async def _run(self):
         self.is_running = True
@@ -88,6 +105,7 @@ def parse_http_request(flow: http.HTTPFlow) -> HttpLog:
         reason="Captured by mitmproxy",
         headers=str(flow.request.headers),
         body=body,  # 위에서 처리한 body
+        threat=None,
     )
     return log
 

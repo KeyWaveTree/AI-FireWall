@@ -27,3 +27,8 @@ class HttpLog(Log):
     url: str
     headers: str | None
     body: str | None
+
+    # 외부에서오는 위협도 대한 표시 수치와
+    threat: str | None
+    # 위협도 대한 결과
+    threat_result: str | None
