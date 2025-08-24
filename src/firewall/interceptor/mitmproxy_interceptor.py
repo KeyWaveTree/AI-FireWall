@@ -30,19 +30,20 @@ class MitmproxyInterceptor:
 
     async def request(self, flow: http.HTTPFlow):
         http_log = parse_http_request(flow)
-        for policy_name, policy_info in self.policies["http"].items():
-            if matches_policy(flow, policy_info):
-                http_log.action = "blocked"
-                http_log.reason = "Blocked by " + policy_info.reason
-                self.logger.http(http_log)
-                # 요청을 차단하고 HTTP 403 상태 코드 반환
-                flow.response = http.Response.make(
-                    403,  # 상태 코드 403 (접근 금지)
-                    b"<h1>Access Denied Blocked Domain</h1>"  # 응답 본문: 차단된 도메인 메시지
-                    b"<img src='https://http.cat/403'/>",  # 403 상태를 나타내는 이미지
-                    {"Content-Type": "text/html"},  # 응답 헤더 설정 (HTML 콘텐츠)
-                )
-                return
+        if not flow.request.url.endswith([".png", ".jpeg", ".jpg"]):
+            for policy_name, policy_info in self.policies["http"].items():
+                if matches_policy(flow, policy_info):
+                    http_log.action = "blocked"
+                    http_log.reason = "Blocked by " + policy_info.reason
+                    self.logger.http(http_log)
+                    # 요청을 차단하고 HTTP 403 상태 코드 반환
+                    flow.response = http.Response.make(
+                        403,  # 상태 코드 403 (접근 금지)
+                        b"<h1>Access Denied Blocked Domain</h1>"  # 응답 본문: 차단된 도메인 메시지
+                        b"<img src='https://http.cat/403'/>",  # 403 상태를 나타내는 이미지
+                        {"Content-Type": "text/html"},  # 응답 헤더 설정 (HTML 콘텐츠)
+                    )
+                    return
         self.logger.http(http_log)
 
     async def response(self, flow: http.HTTPFlow):
