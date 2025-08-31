@@ -1,3 +1,4 @@
+import requests
 import asyncio
 import json
 import re
@@ -23,26 +24,43 @@ class MitmproxyInterceptor:
         self.listen_port = listen_port
         self.policies = policy.policies
         self.is_running = False
+        self.block_image_bytes = requests.get(
+            "https://http.cat/403", proxies={"http": None, "https": None}
+        ).content
 
     async def request(self, flow: http.HTTPFlow):
         http_log = parse_http_request(flow)
-        for policy_name, policy_info in self.policies["http"].items():
-            if matches_policy(flow, policy_info):
-                http_log.action = "blocked"
-                http_log.reason = "Blocked by " + policy_info.reason
-                self.logger.http(http_log)
-                # 요청을 차단하고 HTTP 403 상태 코드 반환
-                flow.response = http.Response.make(
-                    403,  # 상태 코드 403 (접근 금지)
-                    b"<h1>Access Denied Blocked Domain</h1>"  # 응답 본문: 차단된 도메인 메시지
-                    b"<img src='https://http.cat/403'/>",  # 403 상태를 나타내는 이미지
-                    {"Content-Type": "text/html"},  # 응답 헤더 설정 (HTML 콘텐츠)
-                )
-                return
+        if not flow.request.url.endswith([".png", ".jpeg", ".jpg"]):
+            for policy_name, policy_info in self.policies["http"].items():
+                if matches_policy(flow, policy_info):
+                    http_log.action = "blocked"
+                    http_log.reason = "Blocked by " + policy_info.reason
+                    self.logger.http(http_log)
+                    # 요청을 차단하고 HTTP 403 상태 코드 반환
+                    flow.response = http.Response.make(
+                        403,  # 상태 코드 403 (접근 금지)
+                        b"<h1>Access Denied Blocked Domain</h1>"  # 응답 본문: 차단된 도메인 메시지
+                        b"<img src='https://http.cat/403'/>",  # 403 상태를 나타내는 이미지
+                        {"Content-Type": "text/html"},  # 응답 헤더 설정 (HTML 콘텐츠)
+                    )
+                    return
         self.logger.http(http_log)
 
     async def response(self, flow: http.HTTPFlow):
-        pass
+        content_type = flow.response.headers.get("Content-Type", "").lower()
+        for policy_name, policy_info in self.policies["http"].items():
+            if (
+                matches_policy(flow, policy_info)
+                and content_type.startswith("image/jpeg")
+                or content_type.startswith("image/png")
+            ):
+                flow.response.content = self.block_image_bytes
+        if content_type.startswith("application/javascript") or content_type.startswith(
+            "text/javascript"
+        ):
+            from src.assistant.ollama_analyzer import ollama_vulnerability_check
+
+            asyncio.create_task(ollama_vulnerability_check(flow, self.logger))
 
     async def _run(self):
         self.is_running = True
@@ -81,13 +99,14 @@ def parse_http_request(flow: http.HTTPFlow) -> HttpLog:
         id=generate_log_id(),
         timestamp=datetime.fromtimestamp(flow.request.timestamp_start).isoformat(),
         source="mitmproxy",
-        action="request",
+        action="capture",
         protocol=flow.request.scheme,
         method=flow.request.method,
         url=flow.request.url,
         reason="Captured by mitmproxy",
         headers=str(flow.request.headers),
         body=body,  # 위에서 처리한 body
+        threat=None,
     )
     return log
 

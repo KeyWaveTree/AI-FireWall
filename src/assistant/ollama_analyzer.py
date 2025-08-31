@@ -1,13 +1,11 @@
 import re
 from ollama import AsyncClient
 from mitmproxy import http
-
-from example.ollama_chat import response
 from src.firewall.logger.logger import Logger
 
 
 async def ollama_vulnerability_check(
-    flow: http.HTTPFlow, logger: Logger, model: str = "gemma3:1b"
+    flow: http.HTTPFlow, logger: Logger, model: str = "gemma3:27b-it-qat"
 ) -> (float, str):
     js_code = flow.response.get_text()
 
